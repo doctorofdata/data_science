@@ -9,9 +9,24 @@ Created on Tue Dec  8 13:33:00 2020
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
-
+import pandas as pd
+import re
+import string
+import nltk
+from nltk.corpus import stopwords
+from textblob import TextBlob
+import gensim
+import gensim.corpora as corpora
+from gensim.models.coherencemodel import CoherenceModel
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.manifold import TSNE
+    
+# Initialize
+stop_words = set(stopwords.words('english'))
+words = set(nltk.corpus.words.words())
+    
 '''
-    General
+    General Machine Learning
 '''
 
 # Build class for model
@@ -32,6 +47,8 @@ class zws:
         print('My measurements are: ', self.df.shape)
         print('Heres a peak: ')
         print(self.df.head())
+        
+        return self.df
     
     # Function to convert cats
     def convert_cats(self):
@@ -46,6 +63,8 @@ class zws:
     def viz_prod(self, title, x, y):
         
         plt.figure()
+        plt.title(title)
+        plt.plot(x, y)
 
 '''
     Image Classification
@@ -108,16 +127,6 @@ class images:
 # Build class to handle NLP
 class zlp:
 
-    # Import libraries
-    import pandas as pd
-    import re
-    import string
-    import nltk
-    from nltk.corpus import stopwords
-    from textblob import TextBlob
-    import gensim
-    import gensim.corpora as corpora
-
     # Initialize   
     def __init__(self, fp, txt_col):
 
@@ -126,10 +135,6 @@ class zlp:
         self.txt_cols = txt_cols
         self.txt = df[txt_col]
    
-    # Initialize
-    stop_words = set(stopwords.words('english'))
-    words = set(nltk.corpus.words.words())
-
     # Function to clean txt
     def process_txt(x):
 
@@ -177,10 +182,10 @@ class zlp:
         return label
     
     # Build topics using coherence
-    def optimize_topics():
+    def optimize_topics(df):
         
-        wordid = corpora.Dictionary(df1['pos'].apply(lambda x: x.split()))
-        corpus = [wordid.doc2bow(txt.split()) for txt in df1['pos']]
+        wordid = corpora.Dictionary(df['pos'].apply(lambda x: x.split()))
+        corpus = [wordid.doc2bow(txt.split()) for txt in df['pos']]
         scores = []
 
         for n in range(1, 15, 1):
@@ -202,4 +207,59 @@ class zlp:
         plt.title('Coherence Scores for LDA w/ n Topics')
         plt.savefig('coherence.png')
         
+        return wordid, corpus
+    
+    # Function to build topic model
+    def build_topics(n, df):
         
+        wordid = corpora.Dictionary(df['pos'].apply(lambda x: x.split()))
+        corpus = [wordid.doc2bow(txt.split()) for txt in df['pos']]
+        
+        # Build optimized model
+        model = gensim.models.ldamodel.LdaModel(corpus = corpus,
+                                                id2word = wordid,
+                                                num_topics = n,
+                                                random_state = 100)
+
+        # Get dominant topics
+        topics = []
+
+        for row in model[corpus]:
+    
+            topics.append(row)
+    
+        dom_topics = []
+
+        for doc in topics:
+    
+            dom_topics.append(sorted(doc, key = lambda x: x[1], reverse = True)[0][0])
+
+        # Assign
+        df['topic'] = dom_topics
+        print(df['topic'].value_counts())
+        
+        return df
+        
+    # Function to get TSNE
+    def build_tsne(df):
+        
+        # t-SNE
+        vec = CountVectorizer(stop_words = None)
+        
+        x = vec.fit_transform(df['pos'])
+            
+        tsne = TSNE(n_components = 2, random_state = 100).fit_transform(x)
+
+        df['t1'] = tsne[:, 0]
+        df['t2'] = tsne[:, 1]
+
+        # Visualize
+        plt.figure()
+        plt.scatter(df['t1'], df['t2'], df['topic'])
+        plt.xlabel('T1')
+        plt.ylabel('T2')
+        plt.title('tSNE Scores for LDA by Topic')
+        plt.savefig('tsne.png')
+        
+        return df
+    
