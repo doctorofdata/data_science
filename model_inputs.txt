@@ -1,0 +1,4 @@
+{'wd': '/Users/operator/Documents/code',
+ 'fn': '/Users/operator/Documents/data/amazonreviews.tsv',
+ 'sep': '\t',
+ 'txt_col': 'review'}
